@@ -9,17 +9,16 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 
+
 URL = "https://jobs.fidelity.com/in/jobs/?search=&origin=global&lat=&lng="
 
 KEYWORDS = [
-    "senior data analyst",
-    "lead data analyst"
-    "lead IT data analyst",
-    "analytics lead",
-    "senior analyst",
-    "data analyst"
+    "data analyst",
+    "analytics",
+    "business intelligence",
+    "data science",
+    "analyst"
 ]
-
 
 EMAIL = os.environ["EMAIL"]
 PASSWORD = os.environ["PASSWORD"]
@@ -34,15 +33,15 @@ def load_seen_jobs():
             return set(json.load(f))
     return set()
 
-
 def save_seen_jobs(seen_jobs):
     with open(SEEN_FILE, "w") as f:
         json.dump(list(seen_jobs), f)
 
 
+
 def fetch_jobs():
     options = webdriver.ChromeOptions()
-    options.add_argument("--headless")
+    options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
@@ -53,11 +52,9 @@ def fetch_jobs():
     )
 
     driver.get(URL)
-    time.sleep(5)
+    time.sleep(6)
 
     job_elements = driver.find_elements(By.TAG_NAME, "a")
-
-    print("TOTAL LINKS FOUND:", len(job_elements))  # ✅ correct place
 
     jobs = []
 
@@ -67,8 +64,6 @@ def fetch_jobs():
 
         if not title or not link:
             continue
-
-        print("FOUND:", title)  # debug
 
         if any(keyword in title for keyword in KEYWORDS):
             jobs.append((title, link))
@@ -89,21 +84,24 @@ def send_email(new_jobs):
         server.login(EMAIL, PASSWORD)
         server.send_message(msg)
 
-
 def main():
     seen_jobs = load_seen_jobs()
     jobs = fetch_jobs()
 
-    new_jobs = [job for job in jobs if job[1] not in seen_jobs]
+    new_jobs = []
+
+    for title, link in jobs:
+        if link not in seen_jobs:
+            new_jobs.append((title, link))
+            seen_jobs.add(link)
 
     if new_jobs:
         send_email(new_jobs)
-        seen_jobs.update([job[1] for job in new_jobs])
-        save_seen_jobs(seen_jobs)
-        print("New jobs found and emailed!")
+        print(f"{len(new_jobs)} new jobs emailed!")
     else:
         print("No new jobs today.")
 
+    save_seen_jobs(seen_jobs)
 
 if __name__ == "__main__":
     main()
